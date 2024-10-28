@@ -1,0 +1,21 @@
+version: '3.8'
+services:
+  document_management:
+    build: ./services/document_management
+    container_name: document_management_service
+    environment:
+      - DATABASE_URL=${DATABASE_URL}
+      - OCR_API_KEY=${OCR_API_KEY}
+      - DOCUMENT_MANAGEMENT_PORT=${DOCUMENT_MANAGEMENT_PORT}
+    ports:
+      - "${DOCUMENT_MANAGEMENT_PORT}:${DOCUMENT_MANAGEMENT_PORT}"
+
+  rag_service:
+    build: ./services/rag_service
+    container_name: rag_service
+    environment:
+      - DOCUMENTS_DB_URL=${DOCUMENTS_DB_URL}
+      - LLM_API_KEY=${LLM_API_KEY}
+      - RAG_SERVICE_PORT=${RAG_SERVICE_PORT}
+    ports:
+      - "${RAG_SERVICE_PORT}:${RAG_SERVICE_PORT}"
