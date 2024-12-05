@@ -10,16 +10,8 @@ import { AnimatePresence, motion } from "framer-motion";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { ChatInput } from "@/components/ui/chat/chat-input";
 import { ChatMessageList } from "@/components/ui/chat/chat-message-list";
-import { Button } from "@/components/ui/button";
 
-import { CopyIcon, CornerDownLeft, RefreshCcw, Volume2 } from "lucide-react";
-import {
-  SetStateAction,
-  useCallback,
-  useEffect,
-  useRef,
-  useState,
-} from "react";
+import { SetStateAction, useEffect, useRef, useState } from "react";
 
 import { GitHubLogoIcon } from "@radix-ui/react-icons";
 import Markdown from "react-markdown";
@@ -27,26 +19,22 @@ import remarkGfm from "remark-gfm";
 import CodeDisplayBlock from "@/components/code-display-block";
 import io, { Socket } from "socket.io-client";
 
+import UploadPage from "./Upload";
+
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+
 interface Message {
   id: string;
+  manual: string;
   role: "user" | "assistant";
   content: string;
 }
-
-const ChatAiIcons = [
-  {
-    icon: CopyIcon,
-    label: "Copy",
-  },
-  {
-    icon: RefreshCcw,
-    label: "Refresh",
-  },
-  {
-    icon: Volume2,
-    label: "Volume",
-  },
-];
 
 export default function Home() {
   const [messages, setMessages] = useState<Message[]>([]);
@@ -54,6 +42,7 @@ export default function Home() {
   const [isGenerating, setIsGenerating] = useState(false);
   const [socket, setSocket] = useState<Socket | null>(null);
   const [messageStatuses, setMessageStatuses] = useState(new Map());
+  const [manual, setManual] = useState<string>("");
   const [isConnected, setIsConnected] = useState(false);
 
   const messagesRef = useRef<HTMLDivElement>(null);
@@ -86,6 +75,7 @@ export default function Home() {
         const newMessage: Message = {
           id: Date.now().toString(),
           role: "assistant",
+          manual: manual,
           content: receivedMessage.text,
         };
         setMessages((prev) => [...prev, newMessage]);
@@ -129,6 +119,7 @@ export default function Home() {
 
     const messageId = Date.now().toString();
     const newMessage: Message = {
+      manual: manual,
       id: messageId,
       role: "user",
       content: input.trim(),
@@ -149,6 +140,7 @@ export default function Home() {
       const messageData = {
         text: input.trim(),
         timestamp: new Date().toISOString(),
+        manual: manual, 
         type: "outgoing",
       };
       socket.send(messageData);
@@ -169,11 +161,6 @@ export default function Home() {
     // if (messagesRef.current) {
     //   messagesRef.current.scrollTop = messagesRef.current.scrollHeight;
     // }
-  };
-
-  const handleActionClick = (label: string, index: number) => {
-    // Implement your action click handlers here
-    console.log(`Action ${label} clicked for message ${index}`);
   };
 
   return (
@@ -197,8 +184,21 @@ export default function Home() {
             <GitHubLogoIcon className="size-6 text-zinc-500" />
           </div>
         </header>
+        <UploadPage />
 
         <div className="flex h-4/5 w-full max-w-3xl flex-col items-center mx-auto py-6">
+          <Select onValueChange={setManual} value={manual}>
+            <SelectTrigger className="w-[180px]">
+              <SelectValue placeholder={"Select manual"} />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="option1">Option 1</SelectItem>
+              <SelectItem value="option2">Option 2</SelectItem>
+              <SelectItem value="option3">Option 3</SelectItem>
+              <SelectItem value="option4">Option 4</SelectItem>
+            </SelectContent>
+          </Select>
+
           <ChatMessageList ref={messagesRef} className="gap-6 p-4">
             <AnimatePresence>
               {messages.length === 0 && (
@@ -243,7 +243,7 @@ export default function Home() {
                       {/* 👨🏽 */}
                       <Avatar>
                         <AvatarImage
-                          src={message.role === "assistant" ? "" : "👨🏽"}
+                          src={""}
                           alt="Avatar"
                           className={
                             message.role === "assistant" ? "dark:invert" : ""
