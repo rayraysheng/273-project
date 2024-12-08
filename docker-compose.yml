@@ -10,8 +10,8 @@ services:
       - DOCUMENT_MANAGEMENT_PORT=${DOCUMENT_MANAGEMENT_PORT}
     ports:
       - "${DOCUMENT_MANAGEMENT_PORT}:${DOCUMENT_MANAGEMENT_PORT}"
-    #depends_on:
-    #  - database
+    depends_on:
+      - chroma_db
     volumes:
       - ./services/document_management/app/data:/app/data
     develop:
@@ -29,6 +29,17 @@ services:
       interval: 30s
       timeout: 10s
       retries: 3
+    
+  chroma_db:
+    build:
+      context: ./services/chroma_db
+    container_name: chroma_db_service
+    environment:
+      - CHROMA_DB_PORT=${CHROMA_DB_PORT}
+    ports:
+      - "%{CHROMA_DB_PORT}:8000"
+    volumes:
+      - ./services/chroma_db/data:/data
 
 volumes:
   chromadb_data:
