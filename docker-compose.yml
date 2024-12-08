@@ -1,5 +1,3 @@
-version: '3.9'
-
 services:
   document_management:
     build: 
@@ -42,6 +40,3 @@ services:
       - ./services/chroma_db/data:/data
     environment:
       - CHROMA_DB_PORT=${CHROMA_DB_PORT}
-
-volumes:
-  chromadb_data:
