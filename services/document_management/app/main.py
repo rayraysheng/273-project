@@ -7,29 +7,30 @@ from langchain_openai import OpenAIEmbeddings
 from dotenv import load_dotenv
 import os
 import logging
-#import pymupdf
 import fitz as pymupdf
 from fastapi.middleware.cors import CORSMiddleware
+from chromadb import HttpClient
+import uuid
+
 
 # Initialize and configure
 app = FastAPI()
+
 load_dotenv()
 OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
-#CHROMA_DIR = "./data"
-#COLLECTION_NAME = "manuals"
 TEXT_SPLITTER = RecursiveCharacterTextSplitter(chunk_size=10000, chunk_overlap=1000)
 EMBEDDING = OpenAIEmbeddings(api_key=OPENAI_API_KEY)
 
 # Database configuration
-CHROMA_DB_HOST = "chroma_db_service"
-CHROMA_DB_PORT = os.getenv("CHROMA_DB_PORT", 8000)
-vector_db = Chroma(
-    persist_directory="/data",
-    collection_name="manuals",
+CHROMA_DB_HOST = os.getenv("CHROMA_DB_HOST", "http://chroma_db_service")
+CHROMA_DB_PORT = int(os.getenv("CHROMA_DB_PORT", 8000))
+
+# Initialize the HttpClient WITHOUT Settings
+vector_db = HttpClient(
     host=CHROMA_DB_HOST,
-    port=int(CHROMA_DB_PORT),
-    embedding_function=EMBEDDING
+    port=CHROMA_DB_PORT
 )
+collection = vector_db.get_or_create_collection(name="manuals")
 
 # Add CORS
 app.add_middleware(
@@ -63,9 +64,12 @@ def split_text_into_chunks(raw_text: str) -> List[str]:
 
 def store_chunks_in_chroma(text_chunks: List[str], title: str):
     try:
-        vector_db.add_documents(
+        ids = [f"{title}_{uuid.uuid4()}" for _ in text_chunks]
+
+        collection.add(
             documents=text_chunks,
-            metadatas=[{"title": title} for _ in text_chunks]
+            metadatas=[{"title": title} for _ in text_chunks],
+            ids = ids
         )
         return len(text_chunks)
     except Exception as e:
@@ -78,19 +82,23 @@ def store_chunks_in_chroma(text_chunks: List[str], title: str):
 ######################################################################
 
 # Test routes
-@app.get("/")
-async def root():
-    return {"message": "Hello, world!"}
+@app.get("/health")
+async def health():
+    connection = str(vector_db.heartbeat())
+    return {
+        "status": "healthy",
+        "connection": connection
+        }
 
 @app.get("/manuals")
 async def list_manuals():
     """
-    Retrieve a list of all unique manual titles in the database.
+    Retrieve all manual titles stored in the database.
     """
     try:
-        # Retrieve all documents and their metadata
-        documents = vector_db.get()
-        all_metadatas = documents["metadatas"]
+        # Fetch all documents and their metadata from the collection
+        result = collection.get()
+        all_metadatas = result["metadatas"]
 
         # Extract unique titles from metadata
         titles = {metadata["title"] for metadata in all_metadatas if "title" in metadata}
@@ -107,9 +115,9 @@ async def get_manual(title: str):
     """
     try:
         # Retrieve all documents and metadata
-        documents = vector_db.get()
-        all_documents = documents["documents"]
-        all_metadatas = documents["metadatas"]
+        result = collection.get()
+        all_documents = result["documents"]
+        all_metadatas = result["metadatas"]
 
         # Filter documents by title
         filtered_documents = [
@@ -152,9 +160,9 @@ async def delete_manual(title: str):
     """
     try:
         # Retrieve all documents and their metadata
-        documents = vector_db.get()
-        all_ids = documents["ids"]
-        all_metadatas = documents["metadatas"]
+        result = collection.get()
+        all_ids = result["ids"]
+        all_metadatas = result["metadatas"]
 
         # Find IDs of documents with the matching title
         ids_to_delete = [
@@ -164,7 +172,7 @@ async def delete_manual(title: str):
             raise HTTPException(status_code=404, detail=f"Manual '{title}' not found.")
 
         # Delete documents by IDs
-        vector_db.delete(ids=ids_to_delete)
+        collection.delete(ids=ids_to_delete)
 
         return {"message": f"Manual '{title}' successfully deleted."}
     except Exception as e:

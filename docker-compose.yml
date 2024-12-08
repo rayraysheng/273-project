@@ -1,4 +1,4 @@
-version: '3.8'
+version: '3.9'
 
 services:
   document_management:
@@ -8,38 +8,40 @@ services:
     environment:
       - OPENAI_API_KEY=${OPENAI_API_KEY}
       - DOCUMENT_MANAGEMENT_PORT=${DOCUMENT_MANAGEMENT_PORT}
+      - CHROMA_DB_HOST=chroma_db_service
+      - CHROMA_DB_PORT=${CHROMA_DB_PORT}
     ports:
       - "${DOCUMENT_MANAGEMENT_PORT}:${DOCUMENT_MANAGEMENT_PORT}"
     depends_on:
       - chroma_db
     volumes:
       - ./services/document_management/app/data:/app/data
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f http://localhost:${DOCUMENT_MANAGEMENT_PORT}/ || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
     develop:
       watch:
         - action: sync
           path: ./services/document_management/app
           target: /app
           ignore:
-            - __pychache__
+            - "__pycache__"
             - "*.pyc"
         - action: rebuild
           path: ./services/document_management/requirements.txt
-    healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:${DOCUMENT_MANAGEMENT_PORT}/"]
-      interval: 30s
-      timeout: 10s
-      retries: 3
-    
+
   chroma_db:
     build:
       context: ./services/chroma_db
     container_name: chroma_db_service
-    environment:
-      - CHROMA_DB_PORT=${CHROMA_DB_PORT}
     ports:
-      - "%{CHROMA_DB_PORT}:8000"
+      - "${CHROMA_DB_PORT}:8000"
     volumes:
       - ./services/chroma_db/data:/data
+    environment:
+      - CHROMA_DB_PORT=${CHROMA_DB_PORT}
 
 volumes:
   chromadb_data:
