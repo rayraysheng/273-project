@@ -1,4 +1,4 @@
-from fastapi import FastAPI, UploadFile, File, Form, HTTPException
+from fastapi import FastAPI, UploadFile, File, Form, HTTPException, Query
 from fastapi.responses import JSONResponse
 from typing import List
 from langchain.text_splitter import RecursiveCharacterTextSplitter
@@ -12,7 +12,6 @@ from fastapi.middleware.cors import CORSMiddleware
 from chromadb import HttpClient
 import uuid
 
-
 # Initialize and configure
 app = FastAPI()
 
@@ -21,11 +20,10 @@ OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
 TEXT_SPLITTER = RecursiveCharacterTextSplitter(chunk_size=10000, chunk_overlap=1000)
 EMBEDDING = OpenAIEmbeddings(api_key=OPENAI_API_KEY)
 
-# Database configuration
+# Connect to Chroma DB
 CHROMA_DB_HOST = os.getenv("CHROMA_DB_HOST", "http://chroma_db_service")
 CHROMA_DB_PORT = int(os.getenv("CHROMA_DB_PORT", 8000))
 
-# Initialize the HttpClient WITHOUT Settings
 vector_db = HttpClient(
     host=CHROMA_DB_HOST,
     port=CHROMA_DB_PORT
@@ -81,50 +79,47 @@ def store_chunks_in_chroma(text_chunks: List[str], title: str):
 # Endpoints
 ######################################################################
 
-# Test routes
-@app.get("/health")
+#########################
+### Testing Endpoints ###
+#########################
+@app.get("/health", tags=["Utility"], summary="Health Check", description="Check the health status of the document management service and its connection to Chroma.")
 async def health():
+    """
+    Returns a JSON object indicating that the service is healthy and providing information about the Chroma connection.
+    """
     connection = str(vector_db.heartbeat())
-    return {
-        "status": "healthy",
-        "connection": connection
-        }
+    return {"status": "healthy", "connection": connection}
 
-@app.get("/manuals")
+
+@app.get("/manuals", tags=["Manuals"], summary="List Manuals", description="Retrieve all manual titles stored in the database.")
 async def list_manuals():
     """
-    Retrieve all manual titles stored in the database.
+    Returns a list of all unique manual titles.
     """
     try:
-        # Fetch all documents and their metadata from the collection
         result = collection.get()
         all_metadatas = result["metadatas"]
-
-        # Extract unique titles from metadata
         titles = {metadata["title"] for metadata in all_metadatas if "title" in metadata}
-
         return {"manual_titles": list(titles)}
     except Exception as e:
         logging.error("Failed to retrieve manual titles: %s", str(e))
         raise HTTPException(status_code=500, detail="Error retrieving manual titles.")
 
-@app.get("/manual")
-async def get_manual(title: str):
+
+@app.get("/manual", tags=["Manuals"], summary="Get Manual", description="Retrieve the full text content of all uploaded files for a given manual title.")
+async def get_manual(
+    title: str = Query(..., description="The title of the manual you want to retrieve.")
+):
     """
-    Retrieve the full text content of all uploaded files for a manual with the given title.
+    Returns the full concatenated text of the specified manual.
     """
     try:
-        # Retrieve all documents and metadata
         result = collection.get()
         all_documents = result["documents"]
         all_metadatas = result["metadatas"]
 
-        # Filter documents by title
-        filtered_documents = [
-            doc for doc, metadata in zip(all_documents, all_metadatas) if metadata.get("title") == title
-        ]
+        filtered_documents = [doc for doc, metadata in zip(all_documents, all_metadatas) if metadata.get("title") == title]
 
-        # Combine results into a single text
         if not filtered_documents:
             raise HTTPException(status_code=404, detail=f"Manual '{title}' not found.")
         
@@ -134,48 +129,47 @@ async def get_manual(title: str):
         logging.error("Failed to retrieve manual: %s", str(e))
         raise HTTPException(status_code=500, detail="Error retrieving manual.")
 
-
-# Production routes
-@app.post("/upload")
-async def upload_manual(files: List[UploadFile], title: str = Form(...)):
+######################
+### Main Endpoints ###
+######################
+@app.post("/upload", tags=["Manuals"], summary="Upload Manual", description="Upload PDF files and store them under a specified manual title.")
+async def upload_manual(
+    files: List[UploadFile] = File(..., description="One or more PDF files to upload."),
+    title: str = Form(..., description="The title under which these PDF files should be stored.")
+):
+    """
+    Uploads one or more PDF files, extracts their text, splits it into chunks, and stores it in Chroma under the given title.
+    """
     try:
-        # Extract text from PDF files
         raw_text = extract_text_from_pdf(files)
-        
-        # Split text into chunks
         text_chunks = split_text_into_chunks(raw_text)
-        
-        # Store chunks in Chroma
         num_chunks = store_chunks_in_chroma(text_chunks, title)
-        
         return {"message": f"Manual '{title}' successfully uploaded.", "num_chunks": num_chunks}
     except Exception as e:
         logging.error("Error uploading manual: %s", str(e))
         raise HTTPException(status_code=500, detail="Error uploading manual.")
 
-@app.delete("/manual")
-async def delete_manual(title: str):
+
+@app.delete("/manual", tags=["Manuals"], summary="Delete Manual", description="Delete all entries in the database for a given manual title.")
+async def delete_manual(
+    title: str = Query(..., description="The title of the manual you want to delete.")
+):
     """
-    Delete all entries in the database with the given title.
+    Deletes all documents associated with the provided manual title.
     """
     try:
-        # Retrieve all documents and their metadata
         result = collection.get()
         all_ids = result["ids"]
         all_metadatas = result["metadatas"]
 
-        # Find IDs of documents with the matching title
-        ids_to_delete = [
-            doc_id for doc_id, metadata in zip(all_ids, all_metadatas) if metadata.get("title") == title
-        ]
+        ids_to_delete = [doc_id for doc_id, metadata in zip(all_ids, all_metadatas) if metadata.get("title") == title]
+
         if not ids_to_delete:
             raise HTTPException(status_code=404, detail=f"Manual '{title}' not found.")
 
-        # Delete documents by IDs
         collection.delete(ids=ids_to_delete)
 
         return {"message": f"Manual '{title}' successfully deleted."}
     except Exception as e:
         logging.error("Failed to delete manual: %s", str(e))
         raise HTTPException(status_code=500, detail="Error deleting manual.")
-
