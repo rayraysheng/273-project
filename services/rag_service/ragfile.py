@@ -1,4 +1,3 @@
-from dotenv import load_dotenv
 import os
 
 from langchain.chains.question_answering import load_qa_chain
@@ -6,7 +5,6 @@ from langchain.prompts import PromptTemplate
 from langchain_community.vectorstores.chroma import Chroma
 from langchain_openai import ChatOpenAI, OpenAIEmbeddings
 
-load_dotenv()
 OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
 
 
