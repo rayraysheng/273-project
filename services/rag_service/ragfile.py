@@ -37,28 +37,27 @@ async def get_answer(manual, role, content, chat_history):
     vector_db = HttpClient(host=CHROMA_DB_HOST, port=CHROMA_DB_PORT)
 
     collection = vector_db.get_or_create_collection(name=manual)
-    
+
     # Create embeddings for the query
     query_embedding = embedding.embed_query(content)
-    
+
     # Perform similarity search using the HttpClient
     query_result = collection.query(
         query_embeddings=[query_embedding],
     )
-    
+
     docs = [
-        Document(
-            page_content=doc,
-            metadata=metadata
+        Document(page_content=doc, metadata=metadata)
+        for doc, metadata in zip(
+            query_result["documents"][0], query_result["metadatas"][0]
         )
-        for doc, metadata in zip(query_result["documents"][0], query_result["metadatas"][0])
     ]
-    
+
     chain = get_conversational_chain()
-    
+
     history = "\n".join([f"{msg['role']}: {msg['content']}" for msg in chat_history])
     context = "\n".join([doc.page_content for doc in docs])
-        
+
     response = chain.invoke(
         {
             "input_documents": docs,
@@ -70,4 +69,3 @@ async def get_answer(manual, role, content, chat_history):
     )
 
     return {"status": 200, "data": {"output_text": response}, "msg": "OK"}
-    
