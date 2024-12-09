@@ -22,7 +22,7 @@ EMBEDDING = OpenAIEmbeddings(api_key=OPENAI_API_KEY)
 
 # Connect to Chroma DB
 CHROMA_DB_HOST = os.getenv("CHROMA_DB_HOST", "http://chroma_db_service")
-CHROMA_DB_PORT = int(os.getenv("CHROMA_DB_PORT", 8000))
+CHROMA_DB_PORT = int(os.getenv("CHROMA_DB_PORT", 8002))
 
 vector_db = HttpClient(
     host=CHROMA_DB_HOST,

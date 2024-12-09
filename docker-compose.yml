@@ -19,16 +19,16 @@ services:
       interval: 30s
       timeout: 10s
       retries: 3
-    develop:
-      watch:
-        - action: sync
-          path: ./services/document_management/app
-          target: /app
-          ignore:
-            - "__pycache__"
-            - "*.pyc"
-        - action: rebuild
-          path: ./services/document_management/requirements.txt
+    # develop:
+    #   watch:
+    #     - action: sync
+    #       path: ./services/document_management/app
+    #       target: /app
+    #       ignore:
+    #         - "__pycache__"
+    #         - "*.pyc"
+    #     - action: rebuild
+    #       path: ./services/document_management/requirements.txt
 
   chroma_db:
     build:
@@ -40,3 +40,23 @@ services:
       - ./services/chroma_db/data:/data
     environment:
       - CHROMA_DB_PORT=${CHROMA_DB_PORT}
+  rag_service:
+    build:
+      context: ./services/rag_service
+    container_name: rag_service
+    environment:
+      - OPENAI_API_KEY=${OPENAI_API_KEY}
+      - CHROMA_DB_HOST=${CHROMA_DB_HOST}
+      - CHROMA_DB_PORT=${CHROMA_DB_PORT}
+      - RAG_PORT=${RAG_PORT}
+    ports:
+      - "${RAG_PORT}:${RAG_PORT}"
+    depends_on:
+      - chroma_db
+    volumes:
+      - ./services/rag_service/data:/app/data
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f http://localhost:8081/ || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 3

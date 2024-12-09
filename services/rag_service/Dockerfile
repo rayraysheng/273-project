@@ -17,4 +17,4 @@ EXPOSE 8081
 ENV NAME WebSocketServer
 
 # Run the server when the container launches
-CMD ["python", "chatserver.py"]
+CMD ["python", "-u", "chatserver.py"]
