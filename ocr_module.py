@@ -9,4 +9,5 @@ def extract_text_from_image(image_path):
         return text
     except Exception as e:
         return f"Error processing image: {str(e)}"
-        Delete ocr_module.py from main branch
+
+Delete ocr_module.py from main branch
