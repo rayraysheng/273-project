@@ -1,0 +1,79 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>OCR Analytics Page</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            text-align: center;
+            margin: 20px;
+        }
+        #outputTextBox {
+            width: 80%;
+            height: 300px;
+            margin-top: 20px;
+        }
+        #loadingIcon {
+            display: none;
+            border: 4px solid #f3f3f3;
+            border-top: 4px solid #3498db;
+            border-radius: 50%;
+            width: 20px;
+            height: 20px;
+            animation: spin 1s linear infinite;
+            margin: 20px auto;
+        }
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+    </style>
+</head>
+<body>
+    <h1>OCR Analytics Page</h1>
+    <form id="uploadForm" enctype="multipart/form-data">
+        <input type="file" id="inputFile" name="file" accept=".pdf, .png, .jpg, .jpeg">
+        <button type="button" onclick="uploadFile()">Analyze File</button>
+    </form>
+
+    <!-- Loading Spinner -->
+    <div id="loadingIcon"></div>
+
+    <!-- Output Text Area -->
+    <textarea id="outputTextBox" placeholder="Extracted text will appear here"></textarea>
+
+    <script>
+        function uploadFile() {
+            const fileInput = document.getElementById("inputFile");
+            const formData = new FormData();
+            formData.append("file", fileInput.files[0]);
+
+            const outputBox = document.getElementById("outputTextBox");
+            const loadingIcon = document.getElementById("loadingIcon");
+            outputBox.value = "";
+            loadingIcon.style.display = "block";
+
+            fetch("/", {
+                method: "POST",
+                body: formData
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.text) {
+                    outputBox.value = data.text;
+                } else {
+                    alert(data.error || "An error occurred while processing the file.");
+                }
+                loadingIcon.style.display = "none";
+            })
+            .catch(error => {
+                console.error("Error:", error);
+                alert("An error occurred. Please try again.");
+                loadingIcon.style.display = "none";
+            });
+        }
+    </script>
+</body>
+</html>

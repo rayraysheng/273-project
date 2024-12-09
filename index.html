@@ -1,0 +1,100 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>OCR Analytics Page</title>
+    <script src="https://ajax.googleapis.com/ajax/libs/jquery/1.9.0/jquery.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/tesseract.js@2.1.1/dist/tesseract.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.14.305/pdf.min.js"></script>
+    <style>
+         #wrap {
+            float: left;
+            position: relative;
+            left: 50%;
+        }
+        #content {
+            float: left;
+            position: relative;
+            left: -50%;
+        }
+        h1{
+            text-align: center;
+        }
+        input {
+            margin-right: 75px;
+        }
+        #image-wrap {
+            width:1020px; 
+            display:table;
+        }
+        #image-div{
+            width:420px; 
+            display:table-cell;
+        }
+        #output{
+            width:600px; 
+            display:table-cell;
+        }
+        #outputTextBox{
+            width:580px; 
+            height:400px;
+        }
+
+        /* Styling for button container */
+        #button-container {
+            display: flex;
+            align-items: center;
+            gap: 10px; /* Space between the button and the spinner */
+        }
+
+        /* Smaller Loading Spinner Styles */
+        #loadingIcon {
+            display: none; /* Hidden by default */
+            margin: 0;
+            border: 4px solid #f3f3f3;
+            border-top: 4px solid #3498db;
+            border-radius: 50%;
+            width: 20px; /* Smaller size */
+            height: 20px; /* Smaller size */
+            animation: spin 1.5s linear infinite;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+    </style>
+</head>
+<body>
+
+    <div id="wrap">
+        <div id="content">
+            <h1>OCR Analytics Page:</h1>
+            <div id="button-container">
+                Select File (Image/PDF):
+                <input type="file" id="inputFile" accept="image/*,application/pdf" />
+                <button onclick="analyzeFile()">OCR Analyze</button>
+                <div id="loadingIcon"></div> <!-- Smaller Loading Spinner -->
+            </div>
+            <br><br>
+            <div id="image-wrap">
+                <div id="image-div">
+                    Source image:
+                    <br><br>
+                    <img id="sourceImage" width="400" />
+                </div>
+                <div id="output">
+                    Output:
+                    <br><br>
+                    <textarea id="outputTextBox" class="UIInput"></textarea>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- External JavaScript file -->
+    <script src="ocrScript.js"></script>
+
+</body>
+</html>
