@@ -1,8 +1,6 @@
-from fastapi import FastAPI, UploadFile, File, Form, HTTPException, Query
-from fastapi.responses import JSONResponse
+from fastapi import FastAPI, UploadFile, File, Form, HTTPException
 from typing import List
 from langchain.text_splitter import RecursiveCharacterTextSplitter
-from langchain_community.vectorstores.chroma import Chroma
 from langchain_openai import OpenAIEmbeddings
 from dotenv import load_dotenv
 import os
