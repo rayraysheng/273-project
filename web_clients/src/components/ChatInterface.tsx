@@ -6,7 +6,7 @@ import {
   ChatBubbleAvatar,
   ChatBubbleMessage,
 } from "@/components/ui/chat/chat-bubble";
-import { AnimatePresence, motion } from "framer-motion";
+import { AnimatePresence, m, motion } from "framer-motion";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { ChatInput } from "@/components/ui/chat/chat-input";
 import { ChatMessageList } from "@/components/ui/chat/chat-message-list";
@@ -43,14 +43,31 @@ export default function Home() {
   const [socket, setSocket] = useState<Socket | null>(null);
   const [messageStatuses, setMessageStatuses] = useState(new Map());
   const [manual, setManual] = useState<string>("");
+  const [manuals, setManuals] = useState<string[]>([]);
   const [isConnected, setIsConnected] = useState(false);
 
   const messagesRef = useRef<HTMLDivElement>(null);
   const formRef = useRef<HTMLFormElement>(null);
 
+  // Get manual collections in database
+  useEffect(() => {
+    const fetchCollection = async (): Promise<void> => {
+      const response = await fetch("http://localhost:8001/manuals", {
+        method: "GET",
+      });
+      if (response.ok) {
+        const { manual_titles } = await response.json();
+        setManuals(manual_titles);
+      } else {
+        console.error("Failed to fetch manuals");
+      }
+    };
+    fetchCollection();
+  }, []);
+
   // Initialize WebSocket connection
   useEffect(() => {
-    const socketIo = io("http://localhost:8080", {
+    const socketIo = io("ws://localhost:8082", {
       reconnectionAttempts: 5,
       reconnectionDelay: 1000,
     });
@@ -109,6 +126,10 @@ export default function Home() {
   }) => {
     if (e.key === "Enter" && !e.shiftKey) {
       e.preventDefault();
+      if (manual === "") {
+        alert("Please select a manual to continue");
+        return;
+      }
       formRef.current?.requestSubmit();
     }
   };
@@ -116,7 +137,10 @@ export default function Home() {
   const onSubmit = async (e: { preventDefault: () => void }) => {
     e.preventDefault();
     if (!input.trim() || !socket || !isConnected) return;
-
+    if (manual === "") {
+      alert("Please select a manual");
+      return;
+    }
     const messageId = Date.now().toString();
     const newMessage: Message = {
       manual: manual,
@@ -138,10 +162,11 @@ export default function Home() {
     // Send message through WebSocket
     try {
       const messageData = {
-        text: input.trim(),
+        content: input.trim(),
         timestamp: new Date().toISOString(),
-        manual: manual, 
+        manual: manual,
         type: "outgoing",
+        role: "user",
       };
       socket.send(messageData);
 
@@ -192,10 +217,13 @@ export default function Home() {
               <SelectValue placeholder={"Select manual"} />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="option1">Option 1</SelectItem>
-              <SelectItem value="option2">Option 2</SelectItem>
-              <SelectItem value="option3">Option 3</SelectItem>
-              <SelectItem value="option4">Option 4</SelectItem>
+              {manuals.map((m, index) => {
+                return (
+                  <SelectItem key={index} value={m}>
+                    {m}
+                  </SelectItem>
+                );
+              })}
             </SelectContent>
           </Select>
 

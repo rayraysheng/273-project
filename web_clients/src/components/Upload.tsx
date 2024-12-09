@@ -38,11 +38,6 @@ const PDFUploader: React.FC = () => {
       return false;
     }
 
-    if (file.size > 10 * 1024 * 1024) {
-      setError(`File ${file.name} exceeds 10MB limit`);
-      return false;
-    }
-
     return true;
   };
 
@@ -91,25 +86,23 @@ const PDFUploader: React.FC = () => {
     formData.append("title", title);
 
     files.forEach((fileData) => {
-      // Append each file with a unique name or as an array
+      // This exactly matches FastAPI's expectation where files: List[UploadFile]
       formData.append("files", fileData.file);
     });
 
     try {
-      // Single request to upload all files
-      /*
-      const response = await fetch('YOUR_UPLOAD_ENDPOINT', {
-        method: 'POST',
-        body: formData
+      const response = await fetch("http://localhost:8001/upload", {
+        method: "POST",
+        // Don't set Content-Type header - browser will set it automatically
+        body: formData,
       });
 
       if (!response.ok) {
-        throw new Error('Upload failed');
+        const errorData = await response.json();
+        throw new Error(errorData.detail || "Upload failed");
       }
 
       const result = await response.json();
-      */
-
       // Simulating upload progress for all files
       for (let progress = 0; progress <= 100; progress += 10) {
         await new Promise((resolve) => setTimeout(resolve, 200));
@@ -192,7 +185,7 @@ const PDFUploader: React.FC = () => {
             </Button>
           </div>
           <p className="text-sm text-gray-500">
-            Maximum file size: 10MB per file
+            Upload your PDF files to get started
           </p>
         </div>
       </div>
