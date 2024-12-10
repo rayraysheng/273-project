@@ -7,6 +7,9 @@ WORKDIR /app
 # Upgrade pip and install system dependencies
 RUN apt-get update && apt-get install -y --no-install-recommends \
     libmupdf-dev \
+    tesseract-ocr \
+    libtesseract-dev \
+    poppler-utils \
     && rm -rf /var/lib/apt/lists/*
 RUN pip install --upgrade pip
 
@@ -21,7 +24,7 @@ COPY ./app /app
 # Expose the application port
 EXPOSE ${DOCUMENT_MANAGEMENT_PORT:-8000}
 
-# Set default environment variables (can be overridden at runtime)
+# Set default environment variables
 ENV DOCUMENT_MANAGEMENT_PORT=8000
 
 # Run the application

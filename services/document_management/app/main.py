@@ -9,6 +9,9 @@ import fitz as pymupdf
 from fastapi.middleware.cors import CORSMiddleware
 from chromadb import HttpClient
 import uuid
+from PIL import Image
+import pytesseract
+from pdf2image import convert_from_path
 
 # Initialize and configure
 app = FastAPI()
@@ -17,6 +20,9 @@ load_dotenv()
 OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
 TEXT_SPLITTER = RecursiveCharacterTextSplitter(chunk_size=10000, chunk_overlap=1000)
 EMBEDDING = OpenAIEmbeddings(api_key=OPENAI_API_KEY)
+
+pytesseract.pytesseract.tesseract_cmd = "/usr/bin/tesseract"
+POPPLER_PATH = "/usr/bin"
 
 # Connect to Chroma DB
 CHROMA_DB_HOST = os.getenv("CHROMA_DB_HOST", "http://chroma_db_service")
@@ -34,23 +40,57 @@ app.add_middleware(
 )
 
 
-# PDF processing
-def extract_text_from_pdf(uploaded_files: List[UploadFile]) -> str:
-    """Extract text from a list of uploaded PDF files."""
+# File processing
+def extract_text_from_pdf(file_path: str) -> str:
+    """Extract text from a PDF file."""
     try:
-        text = ""
-        for file in uploaded_files:
-            with open(file.filename, "wb") as f:
-                f.write(file.file.read())  # Save the file temporarily
-            pdf_doc = pymupdf.open(file.filename)  # Open the PDF
-            for page in pdf_doc:
-                text += page.get_text()  # Extract text from each page
-            os.remove(file.filename)  # Clean up the temporary file
+        pdf_doc = pymupdf.open(file_path)
+        text = "".join(page.get_text() for page in pdf_doc)
+        pdf_doc.close()
         return text
     except Exception as e:
         logging.error("Error extracting text from PDF: %s", str(e))
-        raise HTTPException(status_code=500, detail="Failed to process PDF files.")
+        raise HTTPException(status_code=500, detail="Failed to process PDF file.")
 
+def perform_ocr_on_image(image_path: str) -> str:
+    """Perform OCR on an image file."""
+    try:
+        image = Image.open(image_path)
+        return pytesseract.image_to_string(image, lang="eng")
+    except Exception as e:
+        logging.error("Error performing OCR on image: %s", str(e))
+        raise HTTPException(status_code=500, detail="Failed to process image file.")
+
+def convert_pdf_to_images(pdf_path: str) -> List[str]:
+    """Convert PDF pages to images for OCR."""
+    try:
+        return convert_from_path(pdf_path, poppler_path=POPPLER_PATH)
+    except Exception as e:
+        logging.error("Error converting PDF to images: %s", str(e))
+        raise HTTPException(status_code=500, detail="Failed to process PDF file.")
+
+def extract_text_from_file(file: UploadFile) -> str:
+    """Extract text from uploaded PDF or image file."""
+    try:
+        file_path = f"temp_{file.filename}"
+        with open(file_path, "wb") as f:
+            f.write(file.file.read())
+
+        if file.filename.lower().endswith(".pdf"):
+            extracted_text = extract_text_from_pdf(file_path)
+            print(extracted_text, flush=True)
+            return extracted_text
+        elif file.filename.lower().endswith((".png", ".jpg", ".jpeg")):
+            extracted_text = perform_ocr_on_image(file_path)
+            print(extracted_text, flush=True)
+            return extracted_text
+        else:
+            raise HTTPException(
+                status_code=400, detail="Unsupported file type. Only PDF and images are allowed."
+            )
+    finally:
+        if os.path.exists(file_path):
+            os.remove(file_path)
 
 def split_text_into_chunks(raw_text: str) -> List[str]:
     """Split raw text into manageable chunks."""
@@ -123,37 +163,38 @@ async def health():
 ######################
 @app.post(
     "/upload",
-    tags=["Manuals"],
-    summary="Upload Manual",
-    description="Upload PDF files and store them under a collection named after the manual title.",
+    tags=["Documents"],
+    summary="Upload Files",
+    description="Upload PDF or image files, extract text, and store them in Chroma DB."
 )
-async def upload_manual(
-    files: List[UploadFile] = File(..., description="One or more PDF files to upload."),
-    title: str = Form(
-        ..., description="The title under which these PDF files should be stored."
-    ),
+async def upload_documents(
+    files: List[UploadFile] = File(..., description="Upload one or more files."),
+    title: str = Form(..., description="The collection title for the files.")
 ):
-    """
-    Uploads one or more PDF files, extracts their text, splits it into chunks,
-    and stores it in a Chroma collection named after the manual title.
-    """
     try:
-        # Extract text from the uploaded PDFs
-        raw_text = extract_text_from_pdf(files)
+        combined_text = ""
+        for file in files:
+            combined_text += extract_text_from_file(file) + "\n"
 
         # Split text into manageable chunks
-        text_chunks = split_text_into_chunks(raw_text)
+        text_chunks = TEXT_SPLITTER.split_text(combined_text)
 
-        # Store chunks in a collection named after the title
-        num_chunks = store_chunks_in_chroma_by_title(text_chunks, title)
+        # Store chunks in Chroma DB
+        manual_collection = vector_db.get_or_create_collection(name=title)
+        embeddings = [EMBEDDING.embed_query(chunk) for chunk in text_chunks]
+        ids = [f"{title}_{uuid.uuid4()}" for _ in text_chunks]
 
-        return {
-            "message": f"Manual '{title}' successfully uploaded.",
-            "num_chunks": num_chunks,
-        }
+        manual_collection.add(
+            documents=text_chunks,
+            embeddings=embeddings,
+            metadatas=[{"title": title} for _ in text_chunks],
+            ids=ids,
+        )
+
+        return {"message": f"Documents uploaded under title '{title}'.", "num_chunks": len(text_chunks)}
     except Exception as e:
-        logging.error("Error uploading manual: %s", str(e))
-        raise HTTPException(status_code=500, detail="Error uploading manual.")
+        logging.error("Error uploading documents: %s", str(e))
+        raise HTTPException(status_code=500, detail="Error processing documents.")
 
 
 @app.get(
