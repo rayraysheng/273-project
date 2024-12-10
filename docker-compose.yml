@@ -19,16 +19,16 @@ services:
       interval: 30s
       timeout: 10s
       retries: 3
-    # develop:
-    #   watch:
-    #     - action: sync
-    #       path: ./services/document_management/app
-    #       target: /app
-    #       ignore:
-    #         - "__pycache__"
-    #         - "*.pyc"
-    #     - action: rebuild
-    #       path: ./services/document_management/requirements.txt
+    develop:
+       watch:
+         - action: sync
+           path: ./services/document_management/app
+           target: /app
+           ignore:
+             - "__pycache__"
+             - "*.pyc"
+         - action: rebuild
+           path: ./services/document_management/requirements.txt
 
   chroma_db:
     build:
